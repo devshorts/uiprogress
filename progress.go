@@ -38,7 +38,8 @@ type Progress struct {
 	mtx    *sync.RWMutex
 }
 
-func canOpenTerm() bool {
+// CanOpenTerm returns true if this can be run under a tty
+func CanOpenTerm() bool {
 	if runtime.GOOS == "openbsd" {
 		_, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 		return err == nil
@@ -50,7 +51,7 @@ func canOpenTerm() bool {
 
 // New returns a new progress bar with defaults
 func New() (*Progress, error) {
-	if !canOpenTerm() {
+	if !CanOpenTerm() {
 		return nil, errors.New("Unable to open tty")
 	}
 
