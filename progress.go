@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
 	"github.com/gosuri/uilive"
+	"github.com/pkg/errors"
 )
 
 // Out is the default writer to render progress bars to
@@ -15,9 +17,6 @@ var Out = os.Stdout
 
 // RefreshInterval in the default time duration to wait for refreshing the output
 var RefreshInterval = time.Millisecond * 10
-
-// defaultProgress is the default progress
-var defaultProgress = New()
 
 // Progress represents the container that renders progress bars
 type Progress struct {
@@ -39,8 +38,22 @@ type Progress struct {
 	mtx    *sync.RWMutex
 }
 
+func canOpenTerm() bool {
+	if runtime.GOOS == "openbsd" {
+		_, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+		return err == nil
+	}
+
+	_, err := os.OpenFile("/dev/tty", os.O_WRONLY, 0)
+	return err == nil
+}
+
 // New returns a new progress bar with defaults
-func New() *Progress {
+func New() (*Progress, error) {
+	if !canOpenTerm() {
+		return nil, errors.New("Unable to open tty")
+	}
+
 	lw := uilive.New()
 	lw.Out = Out
 
@@ -53,27 +66,7 @@ func New() *Progress {
 		tdone: make(chan bool),
 		lw:    uilive.New(),
 		mtx:   &sync.RWMutex{},
-	}
-}
-
-// AddBar creates a new progress bar and adds it to the default progress container
-func AddBar(total int) *Bar {
-	return defaultProgress.AddBar(total)
-}
-
-// Start starts the rendering the progress of progress bars using the DefaultProgress. It listens for updates using `bar.Set(n)` and new bars when added using `AddBar`
-func Start() {
-	defaultProgress.Start()
-}
-
-// Stop stops listening
-func Stop() {
-	defaultProgress.Stop()
-}
-
-// Listen listens for updates and renders the progress bars
-func Listen() {
-	defaultProgress.Listen()
+	}, nil
 }
 
 func (p *Progress) SetOut(o io.Writer) {
